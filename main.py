@@ -7,21 +7,21 @@ import aiohttp_cors
 # --- CONFIGURATION ---
 API_ID = 34092408
 API_HASH = "13bdb62f6a9424169574109474cd6bde"
-SESSION_NAME = "PathshalaSession"  # Ye file GitHub pe honi chahiye
+SESSION_NAME = "PathshalaSession"
 CHANNEL_USERNAME = "pathshalax"
 
 # --- SYSTEM SETUP ---
-# Connection Retries badha diye taaki Timeout na ho
 client = TelegramClient(SESSION_NAME, API_ID, API_HASH, connection_retries=5, retry_delay=1)
 routes = web.RouteTableDef()
 
+# --- ID MAPPING ---
 def get_real_id(class_id):
     cid = int(class_id)
     if 1 <= cid <= 115: return cid + 1
     elif cid >= 116: return cid + 43
     return cid
 
-# --- 1. HOME PAGE ---
+# --- 1. HOME PAGE (PREMIUM UI) ---
 @routes.get('/')
 async def index_page(request):
     html = """
@@ -37,6 +37,7 @@ async def index_page(request):
             body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
             .glass-header { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-bottom: 1px solid #e5e7eb; }
             .thumbnail-gradient { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); }
+            .card-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
         </style>
     </head>
     <body class="pb-10">
@@ -49,7 +50,8 @@ async def index_page(request):
             const container = document.getElementById('cardContainer');
             for (let i = 1; i <= 157; i++) {
                 container.innerHTML += `
-                <div class="bg-white rounded-2xl p-3 flex gap-3 shadow-sm cursor-pointer" onclick="window.location.href='/player?id=${i}'">
+                <div class="bg-white rounded-2xl p-3 flex gap-3 card-shadow cursor-pointer transition active:scale-95" 
+                     onclick="window.location.href='/player?id=${i}'">
                     <div class="relative w-28 h-36 flex-shrink-0 rounded-xl overflow-hidden thumbnail-gradient flex flex-col items-center justify-center">
                         <span class="text-white font-bold text-3xl opacity-90">${i}</span>
                         <span class="text-white/80 text-[10px] uppercase mt-1">Class</span>
@@ -97,8 +99,11 @@ async def player_page(request):
             </video>
         </div>
         <div class="max-w-4xl mx-auto px-4 py-6">
-            <h1 class="text-2xl font-bold text-gray-900">Class {class_id}</h1>
-            <div class="mt-4 bg-gray-50 rounded-xl p-5 border border-gray-100 text-sm text-gray-600 font-mono">
+            <div class="flex justify-between items-center mb-4">
+                <h1 class="text-2xl font-bold text-gray-900">Class {class_id}</h1>
+                <a href="/" class="bg-gray-100 px-3 py-1 rounded text-sm font-semibold">Back</a>
+            </div>
+            <div class="bg-gray-50 rounded-xl p-5 border border-gray-100 text-sm text-gray-600 font-mono whitespace-pre-wrap">
                 {caption_text}
             </div>
         </div>
@@ -141,7 +146,6 @@ async def stream_video(request):
         resp = web.StreamResponse(status=206, headers=headers)
         await resp.prepare(request)
 
-        # 512KB chunks are best for streaming
         async for chunk in client.iter_download(msg.media, offset=from_bytes, request_size=512*1024):
             try: await resp.write(chunk)
             except: break
@@ -157,6 +161,7 @@ async def main():
     cors = aiohttp_cors.setup(app, defaults={"*": aiohttp_cors.ResourceOptions(allow_credentials=True, expose_headers="*", allow_headers="*")})
     runner = web.AppRunner(app)
     await runner.setup()
+    
     # RENDER PORT HANDLING
     port = int(os.environ.get("PORT", 10000))
     site = web.TCPSite(runner, '0.0.0.0', port)
@@ -164,5 +169,12 @@ async def main():
     print(f"🚀 SERVER LIVE ON PORT {port}")
     await client.run_until_disconnected()
 
+# --- THE FIX FOR RENDER (NO EVENT LOOP ERROR) ---
 if __name__ == '__main__':
-    client.loop.run_until_complete(main())
+    # Manually creates an event loop for Python 3.10+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(main())
+    except KeyboardInterrupt:
+        pass
