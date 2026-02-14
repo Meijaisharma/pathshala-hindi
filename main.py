@@ -1,5 +1,6 @@
 import os
 import asyncio
+import mimetypes
 from telethon import TelegramClient
 from aiohttp import web
 import aiohttp_cors
@@ -9,207 +10,231 @@ API_ID = 34092408
 API_HASH = "13bdb62f6a9424169574109474cd6bde"
 SESSION_NAME = "PathshalaSession"
 CHANNEL_USERNAME = "pathshalax"
-NOTES_CACHE = {}
 
-# --- SYSTEM SETUP (High Speed Connection) ---
-client = TelegramClient(SESSION_NAME, API_ID, API_HASH, connection_retries=20, retry_delay=1)
+# --- SYSTEM SETUP ---
+client = TelegramClient(SESSION_NAME, API_ID, API_HASH, connection_retries=5, retry_delay=1)
 routes = web.RouteTableDef()
 
-def get_real_id(class_id):
+# --- ID MAPPINGS ---
+def get_video_id(class_id):
     cid = int(class_id)
     if 1 <= cid <= 115: return cid + 1
     elif cid >= 116: return cid + 43
     return cid
 
+# --- UPTIME ROBOT ENDPOINT (Zinda Rakhne Ke Liye) ---
 @routes.get('/health')
 async def health_check(request):
-    return web.Response(text="Alive", status=200)
+    return web.Response(text="I am Alive!", status=200)
 
-# --- 1. HOME PAGE ---
+# --- 1. MASTER INTERFACE (Tab System for Videos & Notes) ---
 @routes.get('/')
 async def index_page(request):
-    tab = request.query.get('tab', 'lectures')
+    tab = request.query.get('tab', 'lectures')  # lectures or notes
     
-    content = ""
+    # --- UI COMPONENTS ---
+    video_list = ""
     if tab == 'lectures':
         for i in range(1, 158):
-            content += """
-            <div class="card" onclick="window.location.href='/player?id={ID}'">
-                <div class="thumb">
-                    <span class="thumb-id">{ID}</span>
-                    <div class="play-btn"><svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M8 5v14l11-7z"/></svg></div>
+            video_list += f"""
+            <div class="bg-white rounded-2xl p-3 flex gap-3 card-shadow cursor-pointer transition hover:scale-[1.02] border border-transparent hover:border-indigo-100" 
+                 onclick="window.location.href='/player?id={i}'">
+                <div class="relative w-32 h-20 flex-shrink-0 rounded-xl overflow-hidden bg-gradient-to-br from-indigo-600 to-purple-700 flex flex-col items-center justify-center shadow-lg">
+                    <span class="text-white font-bold text-2xl drop-shadow-md">{i}</span>
+                    <div class="absolute bottom-1 right-1 bg-black/50 px-1 rounded text-[8px] text-white">HD</div>
                 </div>
-                <div class="info">
-                    <div class="tag-row"><span class="tag">HINDI SAHITYA</span></div>
-                    <h3 class="title">Lecture Class #{ID}</h3>
-                    <p class="sub">PathshalaX • Full Coverage</p>
+                <div class="flex-1 flex flex-col justify-center">
+                    <span class="text-[10px] font-bold text-pink-500 uppercase tracking-wider">हिन्दी साहित्य</span>
+                    <h3 class="text-sm font-bold text-gray-800 leading-tight">Class Lecture #{i}</h3>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">Video</span>
+                        <span class="text-[10px] text-indigo-500 font-medium">Watch Now &rarr;</span>
+                    </div>
                 </div>
-            </div>""".replace("{ID}", str(i))
-            
-    elif tab == 'notes':
-        ids = [i for i in range(202, 288) if i not in NOTES_CACHE]
-        if ids:
-            try:
-                msgs = await client.get_messages(CHANNEL_USERNAME, ids=ids)
-                for m in msgs:
-                    if m and m.file: NOTES_CACHE[m.id] = m.file.name or f"Note_{m.id}"
-            except: pass
-            
+            </div>"""
+    
+    notes_list = ""
+    if tab == 'notes':
+        # Notes from ID 202 to 287
         for i in range(202, 288):
-            name = NOTES_CACHE.get(i, f"Class Note {i}")
-            clean_name = name.replace('_', ' ').replace('.pdf', '')
-            content += """
-            <div class="note-card" onclick="window.location.href='/view/{ID}'">
-                <div class="note-icon">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="24" height="24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            notes_list += f"""
+            <div class="bg-white rounded-xl p-4 flex items-center justify-between card-shadow border border-gray-100">
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 bg-red-100 text-red-600 rounded-lg flex items-center justify-center">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-bold text-gray-800">Class Note #{i}</h3>
+                        <p class="text-xs text-gray-500">PDF Document</p>
+                    </div>
                 </div>
-                <div class="note-info"><h3>{NAME}</h3><p>PDF Document</p></div>
-                <div class="arrow-btn">READ</div>
-            </div>""".replace("{ID}", str(i)).replace("{NAME}", clean_name)
+                <a href="/download/{i}" class="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-gray-800 flex items-center gap-1">
+                    Download <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                </a>
+            </div>"""
 
-    html = """
+    # --- FULL HTML ---
+    html = f"""
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-        <title>PathshalaX</title>
-        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+        <title>PathshalaX - Learning App</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
         <style>
-            :root { --bg: #FFFFE3; --text: #4A4A4A; --slate: #6D8196; --yellow: #FFD600; --card-bg: #FFFFFF; }
-            * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-            body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding-bottom: 100px; }
-            .header { position: fixed; top: 0; width: 100%; z-index: 50; background: rgba(255, 255, 227, 0.95); backdrop-filter: blur(12px); padding: 15px 20px; border-bottom: 1px solid rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; }
-            .brand { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
-            .profile-icon { width: 32px; height: 32px; background: var(--text); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; }
-            .card-container { padding: 80px 20px 20px 20px; }
-            .section-title { font-size: 18px; font-weight: 800; margin-bottom: 15px; color: var(--text); }
-            .card { background: var(--card-bg); border-radius: 16px; padding: 12px; margin-bottom: 12px; display: flex; gap: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.02); border: 1px solid transparent; transition: transform 0.1s; }
-            .card:active { transform: scale(0.98); background: #fdfdfd; }
-            .thumb { width: 100px; height: 75px; background: var(--text); border-radius: 12px; display: flex; align-items: center; justify-content: center; position: relative; color: var(--bg); }
-            .thumb-id { font-size: 28px; font-weight: 800; opacity: 0.3; }
-            .play-btn { position: absolute; width: 32px; height: 32px; background: var(--yellow); color: black; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
-            .info { flex: 1; display: flex; flex-direction: column; justify-content: center; }
-            .tag-row { margin-bottom: 6px; }
-            .tag { font-size: 9px; font-weight: 800; background: #EDF2F7; color: var(--slate); padding: 3px 6px; border-radius: 4px; }
-            .title { margin: 0; font-size: 15px; font-weight: 700; line-height: 1.3; color: var(--text); }
-            .sub { margin: 4px 0 0 0; font-size: 11px; color: var(--slate); font-weight: 500; }
-            .note-card { background: white; padding: 16px; border-radius: 16px; margin-bottom: 10px; display: flex; align-items: center; gap: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.02); }
-            .note-icon { width: 40px; height: 40px; background: #FFF4E5; color: #FF9800; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
-            .note-info h3 { margin: 0; font-size: 14px; font-weight: 700; color: var(--text); }
-            .note-info p { margin: 0; font-size: 11px; color: var(--slate); }
-            .arrow-btn { margin-left: auto; font-size: 10px; font-weight: 800; background: var(--text); color: white; padding: 6px 12px; border-radius: 20px; }
-            .nav-wrapper { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 100; }
-            .pill-nav { background: white; height: 54px; border-radius: 100px; display: flex; align-items: center; padding: 4px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05); gap: 8px; }
-            .home-btn { width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #C4C4C4; text-decoration: none; transition: color 0.2s; }
-            .home-btn.active { color: var(--text); background: #F5F5F5; }
-            .check-btn { background: var(--yellow); height: 46px; border-radius: 100px; padding: 0 24px; display: flex; align-items: center; gap: 8px; text-decoration: none; color: black; font-weight: 800; font-size: 14px; letter-spacing: 0.5px; box-shadow: 0 4px 15px rgba(255, 214, 0, 0.25); }
-            .footer { text-align: center; margin-top: 40px; font-size: 11px; font-weight: 700; color: var(--text); opacity: 0.4; }
+            body {{ font-family: 'Outfit', sans-serif; background-color: #f8fafc; }}
+            .glass {{ background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(0,0,0,0.05); }}
+            .card-shadow {{ box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05); }}
+            .active-tab {{ background: #111827; color: white; }}
+            .inactive-tab {{ background: #f3f4f6; color: #6b7280; }}
         </style>
     </head>
-    <body>
-        <div class="header"><div class="brand">PathshalaX</div><div class="profile-icon">JS</div></div>
-        <div class="card-container"><h2 class="section-title">{TITLE}</h2>{CONTENT}<div class="footer">Made with ♥️ By Jai Sharma</div></div>
-        <div class="nav-wrapper">
-            <div class="pill-nav">
-                <a href="/?tab=lectures" class="home-btn {HOME_ACT}"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></a>
-                <a href="/?tab=notes" class="check-btn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>NOTES</a>
+    <body class="pb-20">
+        <!-- HEADER -->
+        <nav class="glass fixed top-0 w-full z-50 px-5 py-4 flex justify-between items-center transition-all">
+            <div>
+                <span class="text-xs font-bold text-indigo-600 uppercase tracking-widest">Daily Live Class</span>
+                <h1 class="text-xl font-extrabold text-gray-900">Hindi Literature</h1>
             </div>
+            <div class="bg-gradient-to-r from-pink-500 to-red-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md flex items-center gap-1">
+                <div class="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div> PathshalaX
+            </div>
+        </nav>
+
+        <!-- TABS -->
+        <div class="mt-20 px-4 flex gap-3">
+            <a href="/?tab=lectures" class="flex-1 py-3 text-center rounded-xl font-bold text-sm transition-all { 'active-tab shadow-lg' if tab == 'lectures' else 'inactive-tab' }">
+                📺 Video Classes
+            </a>
+            <a href="/?tab=notes" class="flex-1 py-3 text-center rounded-xl font-bold text-sm transition-all { 'active-tab shadow-lg' if tab == 'notes' else 'inactive-tab' }">
+                📚 PDF Notes
+            </a>
         </div>
+
+        <!-- CONTENT AREA -->
+        <div class="mt-6 px-4 space-y-4">
+            {video_list if tab == 'lectures' else notes_list}
+        </div>
+
+        <!-- FOOTER -->
+        <footer class="mt-12 text-center py-8 border-t border-gray-200">
+            <p class="text-gray-900 font-bold text-sm">Made with ♥️ By Jai Sharma</p>
+            <p class="text-gray-400 text-xs mt-1">© 2024 PathshalaX. All Rights Reserved.</p>
+        </footer>
     </body>
     </html>
-    """.replace("{CONTENT}", content)
-
-    if tab == 'lectures': html = html.replace("{TITLE}", "Video Lectures").replace("{HOME_ACT}", "active")
-    else: html = html.replace("{TITLE}", "Class Notes").replace("{HOME_ACT}", "")
+    """
     return web.Response(text=html, content_type='text/html')
 
-# --- 2. PLAYER PAGE (WITH LOADING INDICATOR) ---
+# --- 2. PREMIUM VIDEO PLAYER (High Tech) ---
 @routes.get('/player')
 async def player_page(request):
     class_id = request.query.get('id', '1')
-    msg_id = get_real_id(class_id)
-    desc = "Loading..."
+    msg_id = get_video_id(class_id)
+    
+    # Fetch Metadata
     try:
         msg = await client.get_messages(CHANNEL_USERNAME, ids=msg_id)
-        if msg and msg.message: desc = msg.message.replace('\n', '<br>')
-    except: pass
+        desc = msg.message.replace('\\n', '<br>') if msg and msg.message else "No description available."
+    except: desc = "Loading info..."
 
-    html = """
+    html = f"""
     <!DOCTYPE html>
     <html lang="en">
     <head>
-        <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Playing Class</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Watching Class {class_id}</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+        <!-- VIDSTACK PLAYER (Netflix Like) -->
         <link rel="stylesheet" href="https://cdn.vidstack.io/player/theme.css" />
         <link rel="stylesheet" href="https://cdn.vidstack.io/player/video.css" />
         <script type="module" src="https://cdn.vidstack.io/player.js"></script>
-        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
         <style>
-            :root { --bg: #FFFFE3; --text: #4A4A4A; --yellow: #FFD600; }
-            body { margin: 0; background: var(--bg); font-family: 'Plus Jakarta Sans', sans-serif; }
-            
-            /* PLAYER CONTAINER */
-            .player-container {
-                position: sticky; top: 0; z-index: 100;
-                width: 100%; aspect-ratio: 16/9; background: black;
-                display: flex; align-items: center; justify-content: center;
-            }
-            media-player { width: 100%; height: 100%; }
-            
-            /* LOADING TEXT BEHIND PLAYER */
-            .loading-text { position: absolute; color: white; font-size: 12px; font-weight: bold; opacity: 0.7; }
-
-            /* HIDE DOWNLOAD */
-            media-download-button { display: none !important; }
-
-            .content { padding: 25px 20px; }
-            .tag { background: var(--yellow); color: black; padding: 4px 8px; font-size: 10px; font-weight: 800; border-radius: 4px; }
-            .title { font-size: 22px; font-weight: 800; color: var(--text); margin: 15px 0 5px 0; line-height: 1.2; }
-            .sub { color: #6D8196; font-size: 14px; font-weight: 600; }
-            .back-btn { display: block; margin: 20px 0; text-align: center; background: var(--text); color: white; padding: 12px; border-radius: 12px; font-weight: 700; text-decoration: none; }
-            .desc-box { margin-top: 30px; background: white; padding: 20px; border-radius: 16px; font-size: 14px; color: var(--text); line-height: 1.6; border: 1px solid rgba(0,0,0,0.05); }
-            .footer { text-align: center; margin-top: 30px; font-size: 12px; font-weight: 700; opacity: 0.5; }
+            body {{ font-family: 'Outfit', sans-serif; background-color: #000; color: white; }}
+            .glass-panel {{ background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }}
+            /* Custom Player Colors */
+            media-player {{ 
+                --media-brand: #6366f1; 
+                --media-focus-ring: #6366f1;
+            }}
         </style>
     </head>
-    <body>
-        <div class="player-container">
-            <div class="loading-text">CONNECTING TO SERVER...</div>
-            <media-player title="Class {CID}" src="/stream/{MID}" aspect-ratio="16/9" autoplay controlslist="nodownload">
+    <body class="min-h-screen flex flex-col">
+        
+        <!-- PLAYER AREA -->
+        <div class="w-full sticky top-0 z-50 bg-black shadow-2xl">
+            <media-player title="Class {class_id} - Hindi Sahitya" src="/stream/{msg_id}" aspect-ratio="16/9" autoplay>
                 <media-provider></media-provider>
                 <media-video-layout></media-video-layout>
             </media-player>
         </div>
 
-        <div class="content">
-            <span class="tag">PREMIUM LECTURE</span>
-            <h1 class="title">Hindi Sahitya Class #{CID}</h1>
-            <p class="sub">PathshalaX • Full Chapter</p>
-            <a href="/" class="back-btn">← Back to Classes</a>
-            <div class="desc-box"><h3 style="margin-top:0; font-size:14px; font-weight:800; margin-bottom:10px;">LECTURE NOTES</h3>{DESC}</div>
-            <div class="footer">Made with ♥️ By Jai Sharma</div>
+        <!-- INFO AREA -->
+        <div class="bg-white text-gray-900 flex-1 rounded-t-3xl -mt-4 relative z-40 p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.2)]">
+            <div class="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-6"></div>
+            
+            <div class="flex justify-between items-start">
+                <div>
+                    <span class="bg-pink-100 text-pink-600 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Premium Lecture</span>
+                    <h1 class="text-2xl font-extrabold mt-2">Hindi Sahitya - Class {class_id}</h1>
+                    <p class="text-sm text-gray-500 font-medium">By PathshalaX Faculty</p>
+                </div>
+                <!-- DOWNLOAD BUTTON -->
+                <a href="/download/{msg_id}" class="flex flex-col items-center gap-1 text-gray-500 hover:text-indigo-600 transition">
+                    <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    </div>
+                    <span class="text-[10px] font-bold">Save</span>
+                </a>
+            </div>
+
+            <!-- DESCRIPTION -->
+            <div class="mt-8">
+                <h3 class="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                    <span class="w-1 h-5 bg-indigo-600 rounded-full"></span> Lecture Details
+                </h3>
+                <div class="bg-gray-50 p-4 rounded-xl border border-gray-100 text-sm text-gray-600 leading-relaxed font-mono whitespace-pre-wrap">
+                    {desc}
+                </div>
+            </div>
+
+            <div class="mt-10 text-center border-t border-gray-100 pt-6">
+                 <p class="text-gray-900 font-bold text-sm">Made with ♥️ By Jai Sharma</p>
+                 <p class="text-gray-400 text-xs">© 2024 PathshalaX</p>
+            </div>
         </div>
     </body>
     </html>
-    """.replace("{CID}", str(class_id)).replace("{MID}", str(msg_id)).replace("{DESC}", desc)
+    """
     return web.Response(text=html, content_type='text/html')
 
-@routes.get('/view/{id}')
-async def view_pdf(request):
-    msg_id = request.match_info['id']
-    html = """<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body{margin:0; height:100vh; display:flex; flex-direction:column; background:#222;}</style></head><body><div style="height:50px; background:#111; display:flex; align-items:center; justify-content:space-between; padding:0 20px; color:white; font-family:sans-serif;"><span style="font-weight:bold; font-size:14px;">Secure Viewer</span><a href="/?tab=notes" style="color:#FFD600; text-decoration:none; font-size:12px; font-weight:bold;">CLOSE</a></div><iframe src="/stream/{MID}#toolbar=0" style="flex:1; border:none;"></iframe></body></html>""".replace("{MID}", msg_id)
-    return web.Response(text=html, content_type='text/html')
-
-# --- 3. TURBO STREAMING ENGINE (64KB CHUNKS) ---
+# --- 3. UNIVERSAL DOWNLOAD/STREAM ENGINE ---
 @routes.get('/stream/{msg_id}')
+@routes.get('/download/{msg_id}')
 async def media_handler(request):
     try:
         msg_id = int(request.match_info['msg_id'])
         msg = await client.get_messages(CHANNEL_USERNAME, ids=msg_id)
-        if not msg or not msg.media: return web.Response(status=404)
+        
+        if not msg or not msg.media: return web.Response(status=404, text="File Not Found")
         
         file_size = msg.file.size
-        mime = "video/mp4" if 'video' in (msg.file.mime_type or "") else (msg.file.mime_type or "application/octet-stream")
+        name = "PathshalaX_File"
+        mime = "application/octet-stream"
+        
+        # Detect Name & Mime
+        if msg.file.name: name = msg.file.name
+        elif msg.media.document: 
+            for attr in msg.media.document.attributes:
+                if hasattr(attr, 'file_name'): name = attr.file_name
+        
+        # Force Download for /download route
+        disposition = 'inline'
+        if 'download' in request.path: disposition = f'attachment; filename="{name}"'
 
         range_header = request.headers.get('Range')
         from_bytes, until_bytes = 0, file_size - 1
@@ -222,23 +247,25 @@ async def media_handler(request):
         
         chunk_size = (until_bytes - from_bytes) + 1
         headers = {
-            'Content-Type': mime,
+            'Content-Type': msg.file.mime_type or mime,
             'Content-Range': f'bytes {from_bytes}-{until_bytes}/{file_size}',
             'Content-Length': str(chunk_size),
-            'Content-Disposition': 'inline', 
+            'Content-Disposition': disposition,
             'Accept-Ranges': 'bytes',
         }
+        
         resp = web.StreamResponse(status=206 if range_header else 200, headers=headers)
         await resp.prepare(request)
 
-        # TURBO MODE: 64KB chunks for instant start on slow networks
-        async for chunk in client.iter_download(msg.media, offset=from_bytes, request_size=64*1024):
+        async for chunk in client.iter_download(msg.media, offset=from_bytes, request_size=1024*1024):
             try: await resp.write(chunk)
             except: break
             from_bytes += len(chunk)
             if from_bytes > until_bytes: break
         return resp
-    except: return web.Response(status=500)
+    except Exception as e:
+        print(e)
+        return web.Response(status=500)
 
 async def main():
     await client.start()
@@ -250,11 +277,13 @@ async def main():
     port = int(os.environ.get("PORT", 10000))
     site = web.TCPSite(runner, '0.0.0.0', port)
     await site.start()
-    print(f"🚀 TURBO SERVER: {port}")
+    print(f"🚀 PATHSHALAX PRO LIVE ON PORT {port}")
     await client.run_until_disconnected()
 
 if __name__ == '__main__':
+    # RENDER UPTIME FIX (Event Loop)
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    try: loop.run_until_complete(main())
+    try:
+        loop.run_until_complete(main())
     except KeyboardInterrupt: pass
