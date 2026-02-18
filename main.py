@@ -1,6 +1,7 @@
 import os
 import asyncio
 from telethon import TelegramClient
+from telethon.sessions import StringSession
 from aiohttp import web
 import aiohttp_cors
 
@@ -10,8 +11,13 @@ API_HASH = "13bdb62f6a9424169574109474cd6bde"
 SESSION_NAME = "PathshalaSession"
 CHANNEL_USERNAME = "pathshalax"
 
+# --- AAPKA PERMANENT STRING SESSION ---
+STRING_SESSION = "1BVtsOI4Bu4XSxk3bkZmIEajcTQSb2_BNvySfxpAa5adWDRfI9yNYzaV-6P8kVf40qj1jw8Yy2ErXs-QtzP-N_jQgzm4w0tlPaHpFJO2Ub3Tn4PYJMc_FITYErApi_wmldzdOndC2dT4cFPix7gh2U-LHz-1Pp5N_HnNRQorM9_5CCC-cnebzq5X6P8FCUnvBGkqRILXuQ3bHKOU9vFa1ZBegl7jzUd2MIWTmKC7ItmXl_ghEqVvHnpxmflCaKAHNGNkasb1hwncpsF0jagWgPNWwYyx_MuoASdWyYYeyS6IIXgCJEhMWLKdQ8IQAkzMG5MAtDE2K2beg19UEH0WtSWW-kLY9WyA="
+
 # --- SYSTEM SETUP ---
-client = TelegramClient(SESSION_NAME, API_ID, API_HASH, connection_retries=5, retry_delay=1)
+# Ab ye directly String Session se connect karega (No OTP needed)
+client = TelegramClient(StringSession(STRING_SESSION), API_ID, API_HASH, connection_retries=5, retry_delay=1)
+
 routes = web.RouteTableDef()
 
 # --- ID MAPPING ---
@@ -49,8 +55,8 @@ async def index_page(request):
         <script>
             const container = document.getElementById('cardContainer');
             for (let i = 1; i <= 157; i++) {
-                container.innerHTML += `
-                <div class="bg-white rounded-2xl p-3 flex gap-3 card-shadow cursor-pointer transition active:scale-95" 
+                container.innerHTML += 
+                `<div class="bg-white rounded-2xl p-3 flex gap-3 card-shadow cursor-pointer transition active:scale-95" 
                      onclick="window.location.href='/player?id=${i}'">
                     <div class="relative w-28 h-36 flex-shrink-0 rounded-xl overflow-hidden thumbnail-gradient flex flex-col items-center justify-center">
                         <span class="text-white font-bold text-3xl opacity-90">${i}</span>
@@ -79,7 +85,7 @@ async def player_page(request):
     caption_text = "Loading details..."
     try:
         msg = await client.get_messages(CHANNEL_USERNAME, ids=msg_id)
-        if msg and msg.message: caption_text = msg.message.replace('\\n', '<br>')
+        if msg and msg.message: caption_text = msg.message.replace('\n', '<br>')
     except: caption_text = "Details unavailable."
 
     html = f"""
@@ -171,7 +177,6 @@ async def main():
 
 # --- THE FIX FOR RENDER (NO EVENT LOOP ERROR) ---
 if __name__ == '__main__':
-    # Manually creates an event loop for Python 3.10+
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:

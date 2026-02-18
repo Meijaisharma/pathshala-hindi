@@ -1,4 +1,3 @@
 telethon
 aiohttp
 aiohttp_cors
-cryptg
