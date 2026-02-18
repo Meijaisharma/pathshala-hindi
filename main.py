@@ -11,15 +11,19 @@ API_HASH = "13bdb62f6a9424169574109474cd6bde"
 SESSION_NAME = "PathshalaSession"
 CHANNEL_USERNAME = "pathshalax"
 
-# 👇 YAHAN APNA STRING SESSION PASTE KAREIN 👇
-STRING_SESSION = "1BVtsOI4Bu4XSxk3bkZmIEajcTQSb2_BNvySfxpAa5adWDRfI9yNYzaV-6P8kVf40qj1jw8Yy2ErXs-QtzP-N_jQgzm4w0tlPaHpFJO2Ub3Tn4PYJMc_FITYErApi_wmldzdOndC2dT4cFPix7gh2U-LHz-1Pp5N_HnNRQorM9_5CCC-cnebzq5X6P8FCUnvBGkqRILXuQ3bHKOU9vFa1ZBegl7jzUd2MIWTmKC7ItmXl_ghEqVvHnpxmflCaKAHNGNkasb1hwncpsF0jagWgPNWwYyx_MuoASdWyYYeyS6IIXgCJEhMWLKdQ8IQAkzMG5MAtDE2K2beg19UEH0WtSWW-kLY9WyA="
+# 👇 AAPKA NAYA STRING SESSION (UPDATED) 👇
+STRING_SESSION = "1BVtsOI4BuzfBup7TFeqYhNRHuw37QYXfAZt6q7VHKE9lbPZsBmUzgN8YbLuLhISLhZmzo9Qx3VzwulND3j15nDBeyK7ulkb_KiU1xYQg-x9IMbpV-xUQTr3EFcm70MgcBWpK1O7RHvZsn2cYtbo3qYwOgyXW7ZXQzQ6mi-PBcqm5CIa1dfW11Vc0uWHF3nIIo668aQadFz3G7Lxx91bHTCSyBLexljZojiJ37Q5plh8IZAKNVOW-a-cTxlFD8Ra0SbGQRvmuTwRH-YFdHXbKwBMLBCrHME3-Saw-y0iRgXni58qchaGHdK-OPwQ6L7wOhub-K2wZrxiPr_F12_zpSQ3ezTRbC6U="
 
 # --- SYSTEM SETUP ---
 if STRING_SESSION == "PASTE_YOUR_STRING_HERE":
     print("❌ ERROR: String Session missing!")
-    exit()
+    client = None
 else:
-    client = TelegramClient(StringSession(STRING_SESSION), API_ID, API_HASH, connection_retries=5, retry_delay=1)
+    try:
+        client = TelegramClient(StringSession(STRING_SESSION), API_ID, API_HASH, connection_retries=5, retry_delay=1)
+    except Exception as e:
+        print(f"Session Error: {e}")
+        client = None
 
 routes = web.RouteTableDef()
 
@@ -88,16 +92,18 @@ async def index_page(request):
     </html>
     """
     return web.Response(text=html, content_type='text/html')
-# --- 2. PLAYER PAGE (FIXED BUTTON PLACEMENT) ---
+# --- 2. PLAYER PAGE (SINGLE CINEMA BUTTON) ---
 @routes.get('/player')
 async def player_page(request):
     class_id = request.query.get('id', '1')
     msg_id = get_real_id(class_id)
     caption = "Loading..."
-    try:
-        msg = await client.get_messages(CHANNEL_USERNAME, ids=msg_id)
-        if msg and msg.message: caption = msg.message.replace('\n', '<br>')
-    except: pass
+    
+    if client:
+        try:
+            msg = await client.get_messages(CHANNEL_USERNAME, ids=msg_id)
+            if msg and msg.message: caption = msg.message.replace('\n', '<br>')
+        except: pass
 
     html = f"""
     <!DOCTYPE html>
@@ -112,15 +118,10 @@ async def player_page(request):
             :root {{ --ink-dark: #4A4A4A; --ink-light: #CBCBCB; --ink-cream: #FFFFE3; --ink-blue: #6D8196; }}
             body {{ background-color: white; margin: 0; font-family: sans-serif; overflow-x: hidden; }}
             
-            /* --- DEFAULT PLAYER --- */
             .default-container {{ position: sticky; top: 0; width: 100%; background: black; z-index: 50; overflow: hidden; }}
             video {{ width: 100%; display: block; }}
-            
-            /* Hide Native Fullscreen Button to avoid double buttons */
             video::-webkit-media-controls-fullscreen-button {{ display: none !important; }}
-            video::-webkit-media-controls-enclosure {{ overflow: hidden; }}
             
-            /* THE CUSTOM CINEMA BUTTON (SHI JAGAH) */
             .cinema-trigger {{
                 position: absolute; bottom: 10px; right: 15px; z-index: 60;
                 color: white; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
@@ -128,17 +129,14 @@ async def player_page(request):
                 border: 1px solid rgba(255,255,255,0.2); cursor: pointer;
                 display: flex; align-items: center; gap: 5px; pointer-events: auto;
             }}
-            
             .details-box {{ padding: 20px; background: white; }}
             
-            /* --- CINEMA MODE (LANDSCAPE) --- */
             #fs-layer {{ display: none; position: fixed; inset: 0; background: black; z-index: 9999; width: 100vw; height: 100vh; }}
             .overlay {{ position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; z-index: 20; transition: opacity 0.3s; pointer-events: none; }}
             .overlay.active {{ pointer-events: auto; opacity: 1; }}
             .overlay.fade {{ opacity: 0; pointer-events: none; }}
             .shade {{ background: rgba(0,0,0,0.6); backdrop-filter: blur(2px); pointer-events: auto; }}
             
-            /* Cinema Controls */
             input[type=range] {{ -webkit-appearance: none; width: 100%; background: transparent; cursor: pointer; }}
             input[type=range]::-webkit-slider-thumb {{ -webkit-appearance: none; height: 16px; width: 16px; background: var(--ink-blue); border-radius: 50%; margin-top: -6px; border: 2px solid white; }}
             input[type=range]::-webkit-slider-runnable-track {{ width: 100%; height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px; }}
@@ -156,69 +154,36 @@ async def player_page(request):
         </style>
     </head>
     <body>
-
-        <!-- DEFAULT PLAYER -->
         <div id="defaultMode">
             <div class="default-container relative">
-                <video id="vid" playsinline controls controlsList="nodownload">
-                    <source src="/stream/{class_id}" type="video/mp4" />
-                </video>
-                <!-- SINGLE CINEMA BUTTON (OVER VIDEO) -->
-                <div class="cinema-trigger" onclick="enterCinemaMode()">
-                    <i class="fas fa-expand"></i> Cinema
-                </div>
+                <video id="vid" playsinline controls controlsList="nodownload"><source src="/stream/{class_id}" type="video/mp4" /></video>
+                <div class="cinema-trigger" onclick="enterCinemaMode()"><i class="fas fa-expand"></i> Cinema</div>
             </div>
-            
             <div class="details-box">
-                <div class="flex justify-between items-center mb-4">
-                    <h1 class="text-2xl font-bold text-[#4A4A4A]">Class {class_id}</h1>
-                    <button onclick="window.history.back()" class="bg-[#CBCBCB] px-4 py-1 rounded text-sm font-bold">Back</button>
-                </div>
-                <div class="bg-[#FFFFE3] border border-[#CBCBCB] rounded-lg p-4 text-sm text-[#4A4A4A] font-mono whitespace-pre-wrap">
-                    {caption}
-                </div>
+                <div class="flex justify-between items-center mb-4"><h1 class="text-2xl font-bold text-[#4A4A4A]">Class {class_id}</h1><button onclick="window.history.back()" class="bg-[#CBCBCB] px-4 py-1 rounded text-sm font-bold">Back</button></div>
+                <div class="bg-[#FFFFE3] border border-[#CBCBCB] rounded-lg p-4 text-sm text-[#4A4A4A] font-mono whitespace-pre-wrap">{caption}</div>
             </div>
         </div>
 
-        <!-- CINEMA MODE LAYER -->
         <div id="fs-layer">
             <div id="fs-video-box" class="relative w-full h-full bg-black flex items-center justify-center">
                 <div id="bright-mask"></div>
                 <div class="gesture-area" style="left:0; width:45%;" id="touchL"></div>
                 <div class="gesture-area" style="right:0; width:45%;" id="touchR"></div>
                 <div class="gesture-area" style="left:45%; width:10%;" id="touchC"></div>
-                
-                <div id="toast" class="toast">
-                    <i id="t-icon" class="fas fa-volume-up text-2xl mb-1"></i>
-                    <div id="t-val" class="font-bold text-lg">100%</div>
-                    <div class="toast-bar"><div id="t-fill" class="toast-fill"></div></div>
-                </div>
-
+                <div id="toast" class="toast"><i id="t-icon" class="fas fa-volume-up text-2xl mb-1"></i><div id="t-val" class="font-bold text-lg">100%</div><div class="toast-bar"><div id="t-fill" class="toast-fill"></div></div></div>
                 <div id="overlay" class="overlay active">
                     <div class="shade top-row">
-                        <div class="flex items-center gap-4">
-                            <i class="fas fa-arrow-left text-xl cursor-pointer" onclick="exitCinemaMode()"></i>
-                            <div><h2 class="font-bold text-lg">Class {class_id}</h2><p class="text-xs opacity-70">Hindi Sahitya</p></div>
-                        </div>
+                        <div class="flex items-center gap-4"><i class="fas fa-arrow-left text-xl cursor-pointer" onclick="exitCinemaMode()"></i><div><h2 class="font-bold text-lg">Class {class_id}</h2><p class="text-xs opacity-70">Hindi Sahitya</p></div></div>
                         <div class="flex gap-6 text-xl"><i class="fas fa-closed-captioning opacity-70"></i><i class="fas fa-cog cursor-pointer" onclick="cycleSpeed()"></i></div>
                     </div>
-                    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex items-center pointer-events-auto">
-                        <i class="fas fa-undo-alt c-btn" onclick="seek(-10)"></i>
-                        <i class="fas fa-pause c-btn c-btn-main" id="cPlay" onclick="togglePlay()"></i>
-                        <i class="fas fa-redo-alt c-btn" onclick="seek(10)"></i>
-                    </div>
+                    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex items-center pointer-events-auto"><i class="fas fa-undo-alt c-btn" onclick="seek(-10)"></i><i class="fas fa-pause c-btn c-btn-main" id="cPlay" onclick="togglePlay()"></i><i class="fas fa-redo-alt c-btn" onclick="seek(10)"></i></div>
                     <div class="shade bot-row">
                         <div class="flex justify-between text-xs font-mono opacity-90"><span id="curT">00:00</span><span id="durT">00:00</span></div>
                         <input type="range" id="skBar" value="0" max="100">
                         <div class="flex justify-between items-center mt-1">
-                            <div class="flex gap-6 text-sm font-bold">
-                                <span onclick="cycleFit()" id="fitTxt" class="cursor-pointer">FIT</span>
-                                <span onclick="alert('Locked')" class="cursor-pointer"><i class="fas fa-unlock"></i> LOCK</span>
-                            </div>
-                            <div class="flex gap-4 items-center">
-                                <span id="spdDisplay" class="text-xs font-bold bg-[#6D8196] px-2 py-1 rounded">1.0x</span>
-                                <i class="fas fa-compress text-xl cursor-pointer" onclick="exitCinemaMode()"></i>
-                            </div>
+                            <div class="flex gap-6 text-sm font-bold"><span onclick="cycleFit()" id="fitTxt" class="cursor-pointer">FIT</span><span onclick="alert('Locked')" class="cursor-pointer"><i class="fas fa-unlock"></i> LOCK</span></div>
+                            <div class="flex gap-4 items-center"><span id="spdDisplay" class="text-xs font-bold bg-[#6D8196] px-2 py-1 rounded">1.0x</span><i class="fas fa-compress text-xl cursor-pointer" onclick="exitCinemaMode()"></i></div>
                         </div>
                     </div>
                 </div>
@@ -226,74 +191,25 @@ async def player_page(request):
         </div>
 
         <script>
-            const vid = document.getElementById('vid');
-            const defMode = document.getElementById('defaultMode');
-            const fsLayer = document.getElementById('fs-layer');
-            const fsBox = document.getElementById('fs-video-box');
-            const defContainer = document.querySelector('.default-container');
-            const overlay = document.getElementById('overlay');
+            const vid = document.getElementById('vid'); const defMode = document.getElementById('defaultMode'); const fsLayer = document.getElementById('fs-layer'); const fsBox = document.getElementById('fs-video-box'); const defContainer = document.querySelector('.default-container'); const overlay = document.getElementById('overlay');
             let isCinema = false, uiTimer;
-
-            function enterCinemaMode() {{
-                isCinema = true;
-                fsBox.insertBefore(vid, fsBox.firstChild);
-                vid.controls = false; vid.style.width = '100%'; vid.style.height = '100%';
-                defMode.style.display = 'none'; fsLayer.style.display = 'block';
-                if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
-                if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(e=>{{}});
-                resetUI();
-            }}
-
-            function exitCinemaMode() {{
-                isCinema = false;
-                defContainer.insertBefore(vid, defContainer.querySelector('.cinema-trigger'));
-                vid.controls = true; vid.style.height = 'auto';
-                fsLayer.style.display = 'none'; defMode.style.display = 'block';
-                if (document.exitFullscreen) document.exitFullscreen();
-                if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
-            }}
-
+            function enterCinemaMode() {{ isCinema = true; fsBox.insertBefore(vid, fsBox.firstChild); vid.controls = false; vid.style.width = '100%'; vid.style.height = '100%'; defMode.style.display = 'none'; fsLayer.style.display = 'block'; if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen(); if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(e=>{{}}); resetUI(); }}
+            function exitCinemaMode() {{ isCinema = false; defContainer.insertBefore(vid, defContainer.querySelector('.cinema-trigger')); vid.controls = true; vid.style.height = 'auto'; fsLayer.style.display = 'none'; defMode.style.display = 'block'; if (document.exitFullscreen) document.exitFullscreen(); if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); }}
             function togglePlay() {{ if(vid.paused) {{ vid.play(); setPlayIcon(true); }} else {{ vid.pause(); setPlayIcon(false); }} resetUI(); }}
             function setPlayIcon(playing) {{ document.getElementById('cPlay').className = `fas ${{playing ? 'fa-pause' : 'fa-play'}} c-btn c-btn-main`; }}
-            vid.addEventListener('play', () => {{ setPlayIcon(true); resetUI(); }});
-            vid.addEventListener('pause', () => {{ setPlayIcon(false); overlay.classList.remove('fade'); }});
+            vid.addEventListener('play', () => {{ setPlayIcon(true); resetUI(); }}); vid.addEventListener('pause', () => {{ setPlayIcon(false); overlay.classList.remove('fade'); }});
             function seek(sec) {{ vid.currentTime += sec; resetUI(); }}
-            
-            vid.ontimeupdate = () => {{
-                if(!isCinema) return;
-                const pct = (vid.currentTime / vid.duration) * 100;
-                document.getElementById('skBar').value = pct || 0;
-                document.getElementById('curT').innerText = fmt(vid.currentTime);
-                document.getElementById('durT').innerText = fmt(vid.duration);
-            }};
+            vid.ontimeupdate = () => {{ if(!isCinema) return; const pct = (vid.currentTime / vid.duration) * 100; document.getElementById('skBar').value = pct || 0; document.getElementById('curT').innerText = fmt(vid.currentTime); document.getElementById('durT').innerText = fmt(vid.duration); }};
             document.getElementById('skBar').addEventListener('input', (e) => vid.currentTime = (e.target.value / 100) * vid.duration);
             function fmt(s) {{ return new Date(s*1000).toISOString().substr(14,5); }}
-
             let startY = 0, startVal = 0, activeG = null;
             const handleStart = (e, type) => {{ startY = e.touches[0].clientY; activeG = type; startVal = type === 'vol' ? vid.volume : parseFloat(document.getElementById('bright-mask').style.opacity) || 0; }};
-            const handleMove = (e) => {{
-                if(!activeG) return; e.preventDefault();
-                const delta = startY - e.touches[0].clientY; const sensitivity = 200;
-                if(activeG === 'vol') {{
-                    let v = startVal + (delta / sensitivity); if(v > 1) v = 1; if(v < 0) v = 0; vid.volume = v; showToast('fa-volume-up', Math.round(v*100));
-                }} else {{
-                    let b = startVal - (delta / sensitivity); if(b < 0) b = 0; if(b > 0.8) b = 0.8; document.getElementById('bright-mask').style.opacity = b; showToast('fa-sun', Math.round((1-(b/0.8))*100));
-                }}
-            }};
-            document.getElementById('touchR').addEventListener('touchstart', e => handleStart(e, 'vol'));
-            document.getElementById('touchL').addEventListener('touchstart', e => handleStart(e, 'bright'));
-            fsBox.addEventListener('touchmove', handleMove, {{ passive: false }});
-            fsBox.addEventListener('touchend', () => {{ activeG = null; setTimeout(()=> document.getElementById('toast').style.opacity=0, 500); }});
-
-            function showToast(icon, val) {{
-                const t = document.getElementById('toast'); document.getElementById('t-icon').className = `fas ${{icon}} text-2xl mb-1`; document.getElementById('t-val').innerText = val + '%'; document.getElementById('t-fill').style.width = val + '%'; t.style.opacity = 1;
-            }}
-            document.getElementById('touchR').addEventListener('dblclick', () => seek(10));
-            document.getElementById('touchL').addEventListener('dblclick', () => seek(-10));
-
+            const handleMove = (e) => {{ if(!activeG) return; e.preventDefault(); const delta = startY - e.touches[0].clientY; const sensitivity = 200; if(activeG === 'vol') {{ let v = startVal + (delta / sensitivity); if(v > 1) v = 1; if(v < 0) v = 0; vid.volume = v; showToast('fa-volume-up', Math.round(v*100)); }} else {{ let b = startVal - (delta / sensitivity); if(b < 0) b = 0; if(b > 0.8) b = 0.8; document.getElementById('bright-mask').style.opacity = b; showToast('fa-sun', Math.round((1-(b/0.8))*100)); }} }};
+            document.getElementById('touchR').addEventListener('touchstart', e => handleStart(e, 'vol')); document.getElementById('touchL').addEventListener('touchstart', e => handleStart(e, 'bright')); fsBox.addEventListener('touchmove', handleMove, {{ passive: false }}); fsBox.addEventListener('touchend', () => {{ activeG = null; setTimeout(()=> document.getElementById('toast').style.opacity=0, 500); }});
+            function showToast(icon, val) {{ const t = document.getElementById('toast'); document.getElementById('t-icon').className = `fas ${{icon}} text-2xl mb-1`; document.getElementById('t-val').innerText = val + '%'; document.getElementById('t-fill').style.width = val + '%'; t.style.opacity = 1; }}
+            document.getElementById('touchR').addEventListener('dblclick', () => seek(10)); document.getElementById('touchL').addEventListener('dblclick', () => seek(-10));
             function resetUI() {{ clearTimeout(uiTimer); overlay.classList.remove('fade'); if(!vid.paused) uiTimer = setTimeout(() => overlay.classList.add('fade'), 3500); }}
             document.getElementById('touchC').addEventListener('click', () => {{ if(overlay.classList.contains('fade')) resetUI(); else overlay.classList.add('fade'); }});
-
             let speeds = [1, 1.25, 1.5, 2]; let sI = 0;
             function cycleSpeed() {{ sI = (sI+1)%speeds.length; vid.playbackRate = speeds[sI]; document.getElementById('spdDisplay').innerText = speeds[sI] + 'x'; }}
             let fit = false;
@@ -309,6 +225,8 @@ async def stream_video(request):
     try:
         class_id = request.match_info['id']
         msg_id = get_real_id(class_id)
+        if not client: return web.Response(status=500, text="Server Error: Telegram Client not connected")
+        
         msg = await client.get_messages(CHANNEL_USERNAME, ids=msg_id)
         if not msg or not msg.media: return web.Response(status=404)
         size = msg.file.size
@@ -330,7 +248,7 @@ async def stream_video(request):
     except: return web.Response(status=500)
 
 async def main():
-    await client.start()
+    if client: await client.start()
     app = web.Application()
     app.add_routes(routes)
     cors = aiohttp_cors.setup(app, defaults={"*": aiohttp_cors.ResourceOptions(allow_credentials=True, expose_headers="*", allow_headers="*")})
@@ -338,7 +256,7 @@ async def main():
     await runner.setup()
     port = int(os.environ.get("PORT", 10000))
     await web.TCPSite(runner, '0.0.0.0', port).start()
-    await client.run_until_disconnected()
+    if client: await client.run_until_disconnected()
 
 if __name__ == '__main__':
     loop = asyncio.new_event_loop()
