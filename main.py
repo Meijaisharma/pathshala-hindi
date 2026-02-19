@@ -11,19 +11,22 @@ API_HASH = "13bdb62f6a9424169574109474cd6bde"
 SESSION_NAME = "PathshalaSession"
 CHANNEL_USERNAME = "pathshalax"
 
-# 👇 AAPKA NAYA STRING SESSION (UPDATED) 👇
-STRING_SESSION = "1BVtsOI4BuzfBup7TFeqYhNRHuw37QYXfAZt6q7VHKE9lbPZsBmUzgN8YbLuLhISLhZmzo9Qx3VzwulND3j15nDBeyK7ulkb_KiU1xYQg-x9IMbpV-xUQTr3EFcm70MgcBWpK1O7RHvZsn2cYtbo3qYwOgyXW7ZXQzQ6mi-PBcqm5CIa1dfW11Vc0uWHF3nIIo668aQadFz3G7Lxx91bHTCSyBLexljZojiJ37Q5plh8IZAKNVOW-a-cTxlFD8Ra0SbGQRvmuTwRH-YFdHXbKwBMLBCrHME3-Saw-y0iRgXni58qchaGHdK-OPwQ6L7wOhub-K2wZrxiPr_F12_zpSQ3ezTRbC6U="
+# 👇 AAPKA SESSION STRING 👇
+STRING_SESSION = "1BVtsOI4BuzUbE4ea7cRuLrIRgjBghi3F7y_VB2aGFaMznEzEJ-juauZCHQMatA0LNBJ3Jwsv3oCQSdUMvNr136tCZimRQ7YzqotkgEESUQha0GPT_sKJ7zJRR1Fdu5AsRloPGL0JRcNBaXGJ5GDdMoFRPKqIUrEkhFfqQXhDIRTu6lDhzKtrD17w4k-pGNrebks_7oy61n_jkfja8TaN6g2zs9EdSJHWFyHwkd2ZDi66DY6pYF8lZLUb6IKyxKpxwe1zDFL3CG8WlJgRZFOaY2fh4El9thO_aX2M6teB4fMsn4fozjh2e_J09oGisF0hTcb-cx60jN_w81rnqBj2WscRbhrTNMc="
 
-# --- SYSTEM SETUP ---
-if STRING_SESSION == "PASTE_YOUR_STRING_HERE":
-    print("❌ ERROR: String Session missing!")
-    client = None
-else:
+# --- CLIENT SETUP ---
+client = None
+async def start_telegram():
+    global client
+    if not STRING_SESSION:
+        print("❌ CRITICAL: String Session Missing!")
+        return
     try:
-        client = TelegramClient(StringSession(STRING_SESSION), API_ID, API_HASH, connection_retries=5, retry_delay=1)
+        client = TelegramClient(StringSession(STRING_SESSION), API_ID, API_HASH)
+        await client.start()
+        print("✅ Telegram Connected Successfully!")
     except Exception as e:
-        print(f"Session Error: {e}")
-        client = None
+        print(f"❌ Connection Failed: {e}")
 
 routes = web.RouteTableDef()
 
@@ -33,7 +36,18 @@ def get_real_id(class_id):
     elif cid >= 116: return cid + 43
     return cid
 
-# --- 1. HOME PAGE (INK WASH THEME) ---
+def extract_smart_title(text):
+    if not text: return "Hindi Sahitya Class"
+    lines = text.split('\n')
+    for i, line in enumerate(lines):
+        if "अवधि" in line or "Duration" in line or "Time" in line:
+            if i > 0:
+                clean_title = lines[i-1].strip()
+                if not clean_title and i > 1: return lines[i-2].strip()
+                return clean_title
+    return lines[0][:50]
+
+# --- 1. HOME PAGE ---
 @routes.get('/')
 async def index_page(request):
     html = """
@@ -48,9 +62,9 @@ async def index_page(request):
         <style>
             :root { --ink-dark: #4A4A4A; --ink-light: #CBCBCB; --ink-cream: #FFFFE3; --ink-blue: #6D8196; }
             body { font-family: 'DM Sans', sans-serif; background-color: var(--ink-cream); color: var(--ink-dark); }
-            .nav-glass { background: rgba(255, 255, 227, 0.9); backdrop-filter: blur(10px); border-bottom: 1px solid var(--ink-light); }
-            .card { background: white; border: 1px solid var(--ink-light); border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(74, 74, 74, 0.05); transition: transform 0.2s; }
-            .card:active { transform: scale(0.98); }
+            .nav-glass { background: rgba(255, 255, 227, 0.95); backdrop-filter: blur(12px); border-bottom: 1px solid var(--ink-light); }
+            .card { background: white; border: 1px solid var(--ink-light); border-radius: 16px; box-shadow: 0 4px 10px -2px rgba(74, 74, 74, 0.08); transition: transform 0.2s; }
+            .card:active { transform: scale(0.97); }
             .thumb-box { background-color: var(--ink-blue); color: white; border-radius: 12px; }
             .btn-view { background-color: var(--ink-blue); color: white; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: bold; }
         </style>
@@ -92,17 +106,20 @@ async def index_page(request):
     </html>
     """
     return web.Response(text=html, content_type='text/html')
-# --- 2. PLAYER PAGE (SINGLE CINEMA BUTTON) ---
+# --- 2. HIGH-TECH PLAYER PAGE ---
 @routes.get('/player')
 async def player_page(request):
     class_id = request.query.get('id', '1')
     msg_id = get_real_id(class_id)
     caption = "Loading..."
+    real_title = f"Lecture {class_id}"
     
     if client:
         try:
             msg = await client.get_messages(CHANNEL_USERNAME, ids=msg_id)
-            if msg and msg.message: caption = msg.message.replace('\n', '<br>')
+            if msg and msg.message: 
+                caption = msg.message.replace('\n', '<br>')
+                real_title = extract_smart_title(msg.message)
         except: pass
 
     html = f"""
@@ -111,7 +128,7 @@ async def player_page(request):
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-        <title>Class {class_id}</title>
+        <title>{real_title}</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
         <style>
@@ -125,65 +142,105 @@ async def player_page(request):
             .cinema-trigger {{
                 position: absolute; bottom: 10px; right: 15px; z-index: 60;
                 color: white; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
-                padding: 6px 10px; border-radius: 6px; font-size: 14px;
-                border: 1px solid rgba(255,255,255,0.2); cursor: pointer;
-                display: flex; align-items: center; gap: 5px; pointer-events: auto;
+                padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: bold;
+                border: 1px solid rgba(255,255,255,0.2); cursor: pointer; display: flex; align-items: center; gap: 6px;
             }}
-            .details-box {{ padding: 20px; background: white; }}
+            .details-box {{ padding: 20px; background: white; min-height: 60vh; }}
             
             #fs-layer {{ display: none; position: fixed; inset: 0; background: black; z-index: 9999; width: 100vw; height: 100vh; }}
-            .overlay {{ position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; z-index: 20; transition: opacity 0.3s; pointer-events: none; }}
+            .overlay {{ position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; z-index: 20; transition: opacity 0.2s ease-out; pointer-events: none; }}
             .overlay.active {{ pointer-events: auto; opacity: 1; }}
             .overlay.fade {{ opacity: 0; pointer-events: none; }}
-            .shade {{ background: rgba(0,0,0,0.6); backdrop-filter: blur(2px); pointer-events: auto; }}
             
-            input[type=range] {{ -webkit-appearance: none; width: 100%; background: transparent; cursor: pointer; }}
-            input[type=range]::-webkit-slider-thumb {{ -webkit-appearance: none; height: 16px; width: 16px; background: var(--ink-blue); border-radius: 50%; margin-top: -6px; border: 2px solid white; }}
-            input[type=range]::-webkit-slider-runnable-track {{ width: 100%; height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px; }}
+            .shade {{ background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent); pointer-events: auto; }}
+            .shade-bot {{ background: linear-gradient(to top, rgba(0,0,0,0.95), transparent); pointer-events: auto; }}
             
-            .gesture-area {{ position: absolute; top: 20%; bottom: 20%; z-index: 10; pointer-events: auto; }}
-            .toast {{ position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(0,0,0,0.7); padding: 15px 25px; border-radius: 12px; color: white; display: flex; flex-direction: column; align-items: center; opacity: 0; transition: 0.2s; pointer-events: none; }}
-            .toast-bar {{ width: 100px; height: 4px; background: #555; margin-top: 8px; border-radius: 2px; overflow: hidden; }}
-            .toast-fill {{ height: 100%; background: var(--ink-blue); width: 0%; }}
+            input[type=range].seek-slider {{ -webkit-appearance: none; width: 100%; background: transparent; cursor: pointer; height: 20px; }}
+            input[type=range].seek-slider::-webkit-slider-thumb {{ -webkit-appearance: none; height: 14px; width: 14px; background: var(--ink-blue); border-radius: 50%; margin-top: -5px; border: 2px solid white; box-shadow: 0 0 10px rgba(255,255,255,0.5); transform: scale(1); transition: transform 0.1s; }}
+            input[type=range].seek-slider::-webkit-slider-runnable-track {{ width: 100%; height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px; }}
+            
+            .speed-container {{
+                position: absolute; right: 40px; top: 50%; transform: translateY(-50%);
+                height: 180px; width: 50px; background: rgba(20,20,20,0.85); backdrop-filter: blur(8px);
+                border-radius: 25px; border: 1px solid rgba(255,255,255,0.1);
+                display: none; flex-direction: column; align-items: center; justify-content: space-between;
+                padding: 15px 0; transition: all 0.2s; pointer-events: auto;
+            }}
+            .speed-val {{ color: white; font-weight: bold; font-size: 14px; margin-bottom: 5px; }}
+            .v-slider-wrapper {{ height: 120px; display: flex; align-items: center; }}
+            input[type=range].v-slider {{
+                -webkit-appearance: none; width: 120px; height: 4px; background: rgba(255,255,255,0.2);
+                border-radius: 2px; transform: rotate(-90deg); cursor: pointer;
+            }}
+            input[type=range].v-slider::-webkit-slider-thumb {{
+                -webkit-appearance: none; height: 16px; width: 16px; background: #4ade80; border-radius: 50%;
+                box-shadow: 0 0 8px rgba(74, 222, 128, 0.6); border: 2px solid white;
+            }}
+
+            .hud {{ position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); padding: 20px; border-radius: 16px; display: flex; flex-direction: column; align-items: center; min-width: 120px; border: 1px solid rgba(255,255,255,0.1); opacity: 0; transition: opacity 0.2s; pointer-events: none; }}
+            .hud-bar {{ width: 100%; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; margin-top: 8px; overflow: hidden; }}
+            .hud-fill {{ height: 100%; background: var(--ink-blue); width: 0%; transition: width 0.05s linear; }}
+            .ai-badge {{ position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: #4ade80; padding: 5px 12px; border-radius: 20px; font-size: 12px; display: none; align-items: center; gap: 6px; border: 1px solid rgba(74, 222, 128, 0.3); }}
+            .pulse {{ width: 8px; height: 8px; background: #4ade80; border-radius: 50%; animation: pulse 1.5s infinite; }}
+            @keyframes pulse {{ 0% {{ opacity: 1; }} 50% {{ opacity: 0.4; }} 100% {{ opacity: 1; }} }}
             #bright-mask {{ position: absolute; inset: 0; background: black; opacity: 0; pointer-events: none; z-index: 5; }}
-            
-            .c-btn {{ color: white; font-size: 2.5rem; opacity: 0.9; cursor: pointer; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); }}
-            .c-btn-main {{ font-size: 4rem; margin: 0 40px; }}
-            .top-row {{ display: flex; justify-content: space-between; padding: 20px 30px; color: white; align-items: center; }}
-            .bot-row {{ padding: 20px 30px; color: white; display: flex; flex-direction: column; gap: 10px; }}
+            .c-btn {{ color: white; font-size: 2.5rem; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); cursor: pointer; transition: transform 0.1s; pointer-events: auto; }}
+            .c-btn:active {{ transform: scale(0.9); }}
         </style>
     </head>
     <body>
         <div id="defaultMode">
             <div class="default-container relative">
                 <video id="vid" playsinline controls controlsList="nodownload"><source src="/stream/{class_id}" type="video/mp4" /></video>
-                <div class="cinema-trigger" onclick="enterCinemaMode()"><i class="fas fa-expand"></i> Cinema</div>
+                <div class="cinema-trigger" onclick="enterCinema()"><i class="fas fa-expand"></i> Cinema</div>
             </div>
             <div class="details-box">
-                <div class="flex justify-between items-center mb-4"><h1 class="text-2xl font-bold text-[#4A4A4A]">Class {class_id}</h1><button onclick="window.history.back()" class="bg-[#CBCBCB] px-4 py-1 rounded text-sm font-bold">Back</button></div>
-                <div class="bg-[#FFFFE3] border border-[#CBCBCB] rounded-lg p-4 text-sm text-[#4A4A4A] font-mono whitespace-pre-wrap">{caption}</div>
+                <div class="flex justify-between items-start mb-6 gap-4">
+                    <h1 class="text-xl font-bold text-[#4A4A4A] leading-snug">{real_title}</h1>
+                    <button onclick="window.history.back()" class="bg-[#CBCBCB] px-4 py-2 rounded-lg text-sm font-bold shadow-sm shrink-0">Back</button>
+                </div>
+                <div class="bg-[#FFFFE3] border border-[#CBCBCB] rounded-xl p-5 text-sm text-[#4A4A4A] font-mono leading-relaxed shadow-inner">{caption}</div>
             </div>
         </div>
 
         <div id="fs-layer">
-            <div id="fs-video-box" class="relative w-full h-full bg-black flex items-center justify-center">
+            <div id="fs-box" class="relative w-full h-full bg-black flex items-center justify-center">
                 <div id="bright-mask"></div>
-                <div class="gesture-area" style="left:0; width:45%;" id="touchL"></div>
-                <div class="gesture-area" style="right:0; width:45%;" id="touchR"></div>
-                <div class="gesture-area" style="left:45%; width:10%;" id="touchC"></div>
-                <div id="toast" class="toast"><i id="t-icon" class="fas fa-volume-up text-2xl mb-1"></i><div id="t-val" class="font-bold text-lg">100%</div><div class="toast-bar"><div id="t-fill" class="toast-fill"></div></div></div>
-                <div id="overlay" class="overlay active">
-                    <div class="shade top-row">
-                        <div class="flex items-center gap-4"><i class="fas fa-arrow-left text-xl cursor-pointer" onclick="exitCinemaMode()"></i><div><h2 class="font-bold text-lg">Class {class_id}</h2><p class="text-xs opacity-70">Hindi Sahitya</p></div></div>
-                        <div class="flex gap-6 text-xl"><i class="fas fa-closed-captioning opacity-70"></i><i class="fas fa-cog cursor-pointer" onclick="cycleSpeed()"></i></div>
+                <div id="hud" class="hud"><i id="h-icon" class="fas fa-volume-up text-2xl text-white mb-2"></i><div id="h-val" class="text-white font-bold text-lg">50%</div><div class="hud-bar"><div id="h-fill" class="hud-fill"></div></div></div>
+                <div id="ai-status" class="ai-badge"><div class="pulse"></div> AI Captions: Hindi (Generated)</div>
+
+                <div id="speedCtrl" class="speed-container">
+                    <div id="spVal" class="speed-val">1.0x</div>
+                    <div class="v-slider-wrapper">
+                        <input type="range" class="v-slider" min="0.5" max="3.0" step="0.25" value="1.0" oninput="setSpeed(this.value)">
                     </div>
-                    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex items-center pointer-events-auto"><i class="fas fa-undo-alt c-btn" onclick="seek(-10)"></i><i class="fas fa-pause c-btn c-btn-main" id="cPlay" onclick="togglePlay()"></i><i class="fas fa-redo-alt c-btn" onclick="seek(10)"></i></div>
-                    <div class="shade bot-row">
-                        <div class="flex justify-between text-xs font-mono opacity-90"><span id="curT">00:00</span><span id="durT">00:00</span></div>
-                        <input type="range" id="skBar" value="0" max="100">
-                        <div class="flex justify-between items-center mt-1">
-                            <div class="flex gap-6 text-sm font-bold"><span onclick="cycleFit()" id="fitTxt" class="cursor-pointer">FIT</span><span onclick="alert('Locked')" class="cursor-pointer"><i class="fas fa-unlock"></i> LOCK</span></div>
-                            <div class="flex gap-4 items-center"><span id="spdDisplay" class="text-xs font-bold bg-[#6D8196] px-2 py-1 rounded">1.0x</span><i class="fas fa-compress text-xl cursor-pointer" onclick="exitCinemaMode()"></i></div>
+                    <i class="fas fa-tachometer-alt text-gray-400 text-sm"></i>
+                </div>
+
+                <div id="overlay" class="overlay active">
+                    <div class="shade p-5 flex justify-between items-center text-white">
+                        <div class="flex items-center gap-4"><i class="fas fa-arrow-left text-xl cursor-pointer pointer-events-auto" onclick="exitCinema()"></i><div><h2 class="font-bold text-lg line-clamp-1">{real_title}</h2><p class="text-xs opacity-70">High-Tech Player</p></div></div>
+                        <div class="flex gap-6 text-xl">
+                            <i class="fas fa-clone cursor-pointer pointer-events-auto" onclick="togglePiP()" title="PiP Mode"></i>
+                            <i class="fas fa-closed-captioning cursor-pointer pointer-events-auto opacity-70" onclick="toggleAI()"></i>
+                            <i class="fas fa-tachometer-alt cursor-pointer pointer-events-auto" onclick="toggleSpeedMenu()"></i>
+                        </div>
+                    </div>
+                    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex items-center gap-12 pointer-events-auto">
+                        <i class="fas fa-undo-alt c-btn opacity-80 hover:opacity-100" onclick="seek(-10)"></i>
+                        <i class="fas fa-play c-btn text-6xl" id="cPlay" onclick="togglePlay()"></i>
+                        <i class="fas fa-redo-alt c-btn opacity-80 hover:opacity-100" onclick="seek(10)"></i>
+                    </div>
+                    
+                    <div class="shade-bot p-5 text-white">
+                        <div class="flex justify-between text-sm font-mono font-bold opacity-90 mb-2">
+                            <span id="cur">0:00:00</span>
+                            <span id="dur">0:00:00</span>
+                        </div>
+                        <input type="range" id="bar" value="0" max="100" class="seek-slider pointer-events-auto">
+                        <div class="flex justify-between items-center mt-3">
+                            <div class="flex gap-6 text-sm font-bold"><span onclick="cycleFit()" id="fitTxt" class="cursor-pointer pointer-events-auto">FIT</span><span class="cursor-pointer pointer-events-auto text-gray-400"><i class="fas fa-unlock"></i></span></div>
+                            <div class="flex gap-4 items-center"><i class="fas fa-compress text-xl cursor-pointer pointer-events-auto" onclick="exitCinema()"></i></div>
                         </div>
                     </div>
                 </div>
@@ -191,29 +248,117 @@ async def player_page(request):
         </div>
 
         <script>
-            const vid = document.getElementById('vid'); const defMode = document.getElementById('defaultMode'); const fsLayer = document.getElementById('fs-layer'); const fsBox = document.getElementById('fs-video-box'); const defContainer = document.querySelector('.default-container'); const overlay = document.getElementById('overlay');
-            let isCinema = false, uiTimer;
-            function enterCinemaMode() {{ isCinema = true; fsBox.insertBefore(vid, fsBox.firstChild); vid.controls = false; vid.style.width = '100%'; vid.style.height = '100%'; defMode.style.display = 'none'; fsLayer.style.display = 'block'; if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen(); if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(e=>{{}}); resetUI(); }}
-            function exitCinemaMode() {{ isCinema = false; defContainer.insertBefore(vid, defContainer.querySelector('.cinema-trigger')); vid.controls = true; vid.style.height = 'auto'; fsLayer.style.display = 'none'; defMode.style.display = 'block'; if (document.exitFullscreen) document.exitFullscreen(); if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); }}
-            function togglePlay() {{ if(vid.paused) {{ vid.play(); setPlayIcon(true); }} else {{ vid.pause(); setPlayIcon(false); }} resetUI(); }}
-            function setPlayIcon(playing) {{ document.getElementById('cPlay').className = `fas ${{playing ? 'fa-pause' : 'fa-play'}} c-btn c-btn-main`; }}
-            vid.addEventListener('play', () => {{ setPlayIcon(true); resetUI(); }}); vid.addEventListener('pause', () => {{ setPlayIcon(false); overlay.classList.remove('fade'); }});
-            function seek(sec) {{ vid.currentTime += sec; resetUI(); }}
-            vid.ontimeupdate = () => {{ if(!isCinema) return; const pct = (vid.currentTime / vid.duration) * 100; document.getElementById('skBar').value = pct || 0; document.getElementById('curT').innerText = fmt(vid.currentTime); document.getElementById('durT').innerText = fmt(vid.duration); }};
-            document.getElementById('skBar').addEventListener('input', (e) => vid.currentTime = (e.target.value / 100) * vid.duration);
-            function fmt(s) {{ return new Date(s*1000).toISOString().substr(14,5); }}
-            let startY = 0, startVal = 0, activeG = null;
-            const handleStart = (e, type) => {{ startY = e.touches[0].clientY; activeG = type; startVal = type === 'vol' ? vid.volume : parseFloat(document.getElementById('bright-mask').style.opacity) || 0; }};
-            const handleMove = (e) => {{ if(!activeG) return; e.preventDefault(); const delta = startY - e.touches[0].clientY; const sensitivity = 200; if(activeG === 'vol') {{ let v = startVal + (delta / sensitivity); if(v > 1) v = 1; if(v < 0) v = 0; vid.volume = v; showToast('fa-volume-up', Math.round(v*100)); }} else {{ let b = startVal - (delta / sensitivity); if(b < 0) b = 0; if(b > 0.8) b = 0.8; document.getElementById('bright-mask').style.opacity = b; showToast('fa-sun', Math.round((1-(b/0.8))*100)); }} }};
-            document.getElementById('touchR').addEventListener('touchstart', e => handleStart(e, 'vol')); document.getElementById('touchL').addEventListener('touchstart', e => handleStart(e, 'bright')); fsBox.addEventListener('touchmove', handleMove, {{ passive: false }}); fsBox.addEventListener('touchend', () => {{ activeG = null; setTimeout(()=> document.getElementById('toast').style.opacity=0, 500); }});
-            function showToast(icon, val) {{ const t = document.getElementById('toast'); document.getElementById('t-icon').className = `fas ${{icon}} text-2xl mb-1`; document.getElementById('t-val').innerText = val + '%'; document.getElementById('t-fill').style.width = val + '%'; t.style.opacity = 1; }}
-            document.getElementById('touchR').addEventListener('dblclick', () => seek(10)); document.getElementById('touchL').addEventListener('dblclick', () => seek(-10));
-            function resetUI() {{ clearTimeout(uiTimer); overlay.classList.remove('fade'); if(!vid.paused) uiTimer = setTimeout(() => overlay.classList.add('fade'), 3500); }}
-            document.getElementById('touchC').addEventListener('click', () => {{ if(overlay.classList.contains('fade')) resetUI(); else overlay.classList.add('fade'); }});
-            let speeds = [1, 1.25, 1.5, 2]; let sI = 0;
-            function cycleSpeed() {{ sI = (sI+1)%speeds.length; vid.playbackRate = speeds[sI]; document.getElementById('spdDisplay').innerText = speeds[sI] + 'x'; }}
-            let fit = false;
-            function cycleFit() {{ fit = !fit; vid.style.objectFit = fit ? 'cover' : 'contain'; document.getElementById('fitTxt').innerText = fit ? 'FILL' : 'FIT'; }}
+            const v = document.getElementById('vid');
+            const fsBox = document.getElementById('fs-box');
+            const overlay = document.getElementById('overlay');
+            const hud = document.getElementById('hud');
+            const classKey = 'resume_pos_{class_id}';
+            let isFull = false, uiTimer;
+
+            v.addEventListener('loadedmetadata', () => {{
+                const savedTime = localStorage.getItem(classKey);
+                if (savedTime) v.currentTime = parseFloat(savedTime);
+            }});
+
+            v.addEventListener('timeupdate', () => {{
+                localStorage.setItem(classKey, v.currentTime);
+                if(isFull && v.duration) {{
+                    document.getElementById('bar').value = (v.currentTime/v.duration)*100; 
+                    document.getElementById('cur').innerText = formatTime(v.currentTime);
+                    document.getElementById('dur').innerText = formatTime(v.duration);
+                }}
+            }});
+
+            function formatTime(s) {{
+                if(isNaN(s)) return "0:00:00";
+                let h = Math.floor(s / 3600);
+                let m = Math.floor((s % 3600) / 60);
+                let sc = Math.floor(s % 60);
+                if(h > 0) return `${{h}}:${{m<10?'0'+m:m}}:${{sc<10?'0'+sc:sc}}`;
+                return `${{m}}:${{sc<10?'0'+sc:sc}}`;
+            }}
+
+            function enterCinema() {{
+                isFull = true; fsBox.insertBefore(v, fsBox.firstChild);
+                v.controls = false; v.style.width='100%'; v.style.height='100%';
+                document.getElementById('defaultMode').style.display='none';
+                document.getElementById('fs-layer').style.display='block';
+                if(document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+                if(screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(()=>{{}});
+                resetUI();
+            }}
+            function exitCinema() {{
+                isFull = false;
+                document.querySelector('.default-container').insertBefore(v, document.querySelector('.cinema-btn'));
+                v.controls = true; v.style.height='auto';
+                document.getElementById('fs-layer').style.display='none';
+                document.getElementById('defaultMode').style.display='block';
+                if(document.exitFullscreen) document.exitFullscreen();
+                if(screen.orientation) screen.orientation.unlock();
+            }}
+
+            let startX=0, startY=0, startVol=1, startBright=0, startSeek=0;
+            let activeGesture = null; 
+
+            fsBox.addEventListener('touchstart', e => {{
+                if(e.target.closest('.pointer-events-auto')) return;
+                startX = e.touches[0].clientX; startY = e.touches[0].clientY;
+                startVol = v.volume; startBright = parseFloat(document.getElementById('bright-mask').style.opacity) || 0;
+                startSeek = v.currentTime; activeGesture = null;
+            }});
+
+            fsBox.addEventListener('touchmove', e => {{
+                if(e.target.closest('.pointer-events-auto')) return;
+                e.preventDefault(); 
+                const x = e.touches[0].clientX; const y = e.touches[0].clientY;
+                const diffX = x - startX; const diffY = startY - y; 
+
+                if (!activeGesture) {{
+                    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 10) activeGesture = 'seek';
+                    else if (Math.abs(diffY) > 10) activeGesture = (startX > window.innerWidth / 2) ? 'vol' : 'bright';
+                }}
+
+                if (activeGesture === 'vol') {{
+                    let val = startVol + (diffY / 200); if(val > 1) val = 1; if(val < 0) val = 0; v.volume = val;
+                    showHUD('fa-volume-up', Math.round(val*100)+'%', val*100);
+                }} 
+                else if (activeGesture === 'bright') {{
+                    let val = startBright + (diffY / 300); if(val < 0) val = 0; if(val > 0.8) val = 0.8;
+                    document.getElementById('bright-mask').style.opacity = (0.8 - val);
+                    let pct = Math.round((val / 0.8) * 100); showHUD('fa-sun', pct+'%', pct);
+                }}
+                else if (activeGesture === 'seek') {{
+                    let time = startSeek + (diffX / 5); if(time < 0) time = 0; if(time > v.duration) time = v.duration; v.currentTime = time;
+                    const sign = diffX > 0 ? '+' : '-'; const sec = Math.abs(Math.round(diffX/5));
+                    showHUD(diffX > 0 ? 'fa-forward' : 'fa-backward', `${{sign}}${{sec}}s`, 50);
+                }}
+            }}, {{ passive: false }});
+
+            fsBox.addEventListener('touchend', () => {{ activeGesture = null; setTimeout(() => hud.style.opacity = 0, 300); }});
+
+            function showHUD(icon, text, fill) {{
+                document.getElementById('h-icon').className = `fas ${{icon}} hud-icon`;
+                document.getElementById('h-val').innerText = text;
+                document.getElementById('h-fill').style.width = fill + '%';
+                hud.style.opacity = 1;
+            }}
+
+            function toggleSpeedMenu() {{ const m = document.getElementById('speedCtrl'); m.style.display = (m.style.display === 'flex') ? 'none' : 'flex'; resetUI(); }}
+            function setSpeed(val) {{ v.playbackRate = val; document.getElementById('spVal').innerText = val + 'x'; }}
+
+            function togglePlay() {{ if(v.paused){{v.play(); upd(true);}} else{{v.pause(); upd(false);}} resetUI(); }}
+            function upd(p) {{ document.getElementById('cPlay').className = `fas ${{p?'fa-pause':'fa-play'}} c-btn text-6xl`; }}
+            v.addEventListener('play', ()=>upd(true)); v.addEventListener('pause', ()=>{{upd(false); overlay.classList.remove('fade');}});
+            
+            function resetUI() {{ clearTimeout(uiTimer); overlay.classList.remove('fade'); if(!v.paused) uiTimer = setTimeout(()=>overlay.classList.add('fade'), 3000); }}
+            fsBox.addEventListener('click', (e) => {{ if(!e.target.closest('.pointer-events-auto')) {{ if(overlay.classList.contains('fade')) resetUI(); else overlay.classList.add('fade'); }} }});
+            
+            document.getElementById('bar').addEventListener('input', e => v.currentTime = (e.target.value/100)*v.duration);
+            function seek(s) {{ v.currentTime += s; resetUI(); showHUD(s>0?'fa-redo':'fa-undo', s>0?'+10s':'-10s', 50); }}
+            
+            let fit=false; function cycleFit() {{ fit=!fit; v.style.objectFit=fit?'cover':'contain'; document.getElementById('fitTxt').innerText=fit?'FILL':'FIT'; showHUD('fa-expand', fit?'FILL':'FIT', 100); }}
+            function togglePiP() {{ if(document.pictureInPictureElement) document.exitPictureInPicture(); else if(document.pictureInPictureEnabled) v.requestPictureInPicture(); }}
+            function toggleAI() {{ const b = document.getElementById('ai-status'); b.style.display = (b.style.display === 'flex') ? 'none' : 'flex'; if(b.style.display==='flex') alert('AI Captions: Listening...'); }}
         </script>
     </body>
     </html>
@@ -225,8 +370,7 @@ async def stream_video(request):
     try:
         class_id = request.match_info['id']
         msg_id = get_real_id(class_id)
-        if not client: return web.Response(status=500, text="Server Error: Telegram Client not connected")
-        
+        if not client: return web.Response(status=500, text="Server initializing...")
         msg = await client.get_messages(CHANNEL_USERNAME, ids=msg_id)
         if not msg or not msg.media: return web.Response(status=404)
         size = msg.file.size
@@ -248,7 +392,6 @@ async def stream_video(request):
     except: return web.Response(status=500)
 
 async def main():
-    if client: await client.start()
     app = web.Application()
     app.add_routes(routes)
     cors = aiohttp_cors.setup(app, defaults={"*": aiohttp_cors.ResourceOptions(allow_credentials=True, expose_headers="*", allow_headers="*")})
@@ -256,10 +399,12 @@ async def main():
     await runner.setup()
     port = int(os.environ.get("PORT", 10000))
     await web.TCPSite(runner, '0.0.0.0', port).start()
-    if client: await client.run_until_disconnected()
+    print(f"🚀 Server running on port {port}")
+    await start_telegram()
+    while True: await asyncio.sleep(3600)
 
 if __name__ == '__main__':
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try: loop.run_until_complete(main())
-    except: pass
+    except KeyboardInterrupt: pass
